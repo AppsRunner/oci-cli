@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "lexbangla-rag-service"
+version = "0.1.0"
+description = "Document ingestion pipeline for LexBangla RAG"
+requires-python = ">=3.10"
+dependencies = [
+    "lexbangla-rag",
+    "click>=8.1",
+    "python-dotenv>=1.0",
+    "rich>=13.0",
+]
+
+[project.scripts]
+lexbangla-ingest = "ingest:main"
