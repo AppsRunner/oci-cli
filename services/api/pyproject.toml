@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "lexbangla-api"
+version = "0.1.0"
+description = "LexBangla retrieval API"
+requires-python = ">=3.10"
+dependencies = [
+    "lexbangla-rag",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+    "python-dotenv>=1.0",
+]
+
+[project.scripts]
+lexbangla-api = "main:start"
