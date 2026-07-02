@@ -1,0 +1,19 @@
+[Unit]
+Description=LexBangla One-shot Deploy (triggered by CD pipeline)
+Documentation=https://github.com/appsrunner/oci-cli/tree/main/deploy
+Requires=docker.service lexbangla.service
+After=docker.service lexbangla.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/lexbangla/deploy
+
+EnvironmentFile=/opt/lexbangla/deploy/.env.prod
+
+# IMAGE_TAG is passed via systemctl start --property=Environment
+ExecStart=/opt/lexbangla/deploy/scripts/deploy.sh %i
+
+TimeoutStartSec=600s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lexbangla-deploy

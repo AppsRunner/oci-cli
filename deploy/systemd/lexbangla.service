@@ -1,0 +1,34 @@
+[Unit]
+Description=LexBangla Production Stack (Docker Compose)
+Documentation=https://github.com/appsrunner/oci-cli/tree/main/deploy
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/lexbangla/deploy
+
+EnvironmentFile=/opt/lexbangla/deploy/.env.prod
+
+ExecStartPre=/usr/bin/docker compose -f /opt/lexbangla/deploy/docker-compose.prod.yml pull
+ExecStart=/usr/bin/docker compose -f /opt/lexbangla/deploy/docker-compose.prod.yml up -d --remove-orphans
+ExecStop=/usr/bin/docker compose -f /opt/lexbangla/deploy/docker-compose.prod.yml down
+ExecReload=/usr/bin/docker compose -f /opt/lexbangla/deploy/docker-compose.prod.yml up -d --remove-orphans
+
+# Give containers time to become healthy
+ExecStartPost=/bin/sleep 15
+ExecStartPost=/opt/lexbangla/deploy/scripts/health-check.sh
+
+Restart=on-failure
+RestartSec=30s
+TimeoutStartSec=300s
+TimeoutStopSec=60s
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lexbangla
+
+[Install]
+WantedBy=multi-user.target
