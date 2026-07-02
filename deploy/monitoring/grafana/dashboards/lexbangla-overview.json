@@ -1,0 +1,299 @@
+{
+  "title": "LexBangla — Production Overview",
+  "uid": "lexbangla-overview",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-3h", "to": "now" },
+  "timezone": "browser",
+  "tags": ["lexbangla", "production"],
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Request Rate (req/s)",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 200 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "job:django_http_requests:rate5m",
+          "legendFormat": "req/s"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "5xx Error Rate",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.01 },
+              { "color": "red", "value": 0.05 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "job:django_http_5xx:rate5m / job:django_http_requests:rate5m",
+          "legendFormat": "5xx ratio"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "p95 Latency",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 2 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "job:django_request_latency_p95:rate5m",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Active DB Connections",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 80 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "job:postgres_active_connections:current",
+          "legendFormat": "active"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Redis Memory Used",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 180000000 },
+              { "color": "red", "value": 230000000 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "redis_memory_used_bytes",
+          "legendFormat": "used"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Host CPU %",
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "100 - (avg(rate(node_cpu_seconds_total{mode='idle'}[5m])) * 100)",
+          "legendFormat": "cpu %"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "HTTP Request Rate by Status",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "5xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "4xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "2xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] } },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "sum(rate(django_http_responses_total_by_status_total{status=~'2..'}[5m]))", "legendFormat": "2xx" },
+        { "datasource": "Prometheus", "expr": "sum(rate(django_http_responses_total_by_status_total{status=~'4..'}[5m]))", "legendFormat": "4xx" },
+        { "datasource": "Prometheus", "expr": "sum(rate(django_http_responses_total_by_status_total{status=~'5..'}[5m]))", "legendFormat": "5xx" }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Request Latency Percentiles",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] } },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "job:django_request_latency_p50:rate5m", "legendFormat": "p50" },
+        { "datasource": "Prometheus", "expr": "job:django_request_latency_p95:rate5m", "legendFormat": "p95" },
+        { "datasource": "Prometheus", "expr": "job:django_request_latency_p99:rate5m", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "PostgreSQL — Connections",
+      "gridPos": { "x": 0, "y": 12, "w": 8, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "sum(pg_stat_activity_count) by (state)", "legendFormat": "{{ state }}" },
+        { "datasource": "Prometheus", "expr": "pg_settings_max_connections", "legendFormat": "max_connections" }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "PostgreSQL — Transaction Rate",
+      "gridPos": { "x": 8, "y": 12, "w": 8, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "ops" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "sum(rate(pg_stat_database_xact_commit[5m]))", "legendFormat": "commits/s" },
+        { "datasource": "Prometheus", "expr": "sum(rate(pg_stat_database_xact_rollback[5m]))", "legendFormat": "rollbacks/s" }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Redis — Ops & Memory",
+      "gridPos": { "x": 16, "y": 12, "w": 8, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [{ "matcher": { "id": "byName", "options": "memory" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "custom.axisPlacement", "value": "right" }] }] },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "rate(redis_commands_processed_total[5m])", "legendFormat": "ops/s" },
+        { "datasource": "Prometheus", "expr": "redis_memory_used_bytes", "legendFormat": "memory" }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "Container Memory Usage",
+      "gridPos": { "x": 0, "y": 19, "w": 12, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] } },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "container_memory_usage_bytes{name=~'lexbangla_.*'}",
+          "legendFormat": "{{ name }}"
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Container CPU Usage",
+      "gridPos": { "x": 12, "y": 19, "w": 12, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "percentunit" } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] } },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(container_cpu_usage_seconds_total{name=~'lexbangla_.*'}[5m])",
+          "legendFormat": "{{ name }}"
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "type": "timeseries",
+      "title": "Host Disk I/O",
+      "gridPos": { "x": 0, "y": 26, "w": 12, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "Bps" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "rate(node_disk_read_bytes_total{device='sda'}[5m])", "legendFormat": "read" },
+        { "datasource": "Prometheus", "expr": "rate(node_disk_written_bytes_total{device='sda'}[5m])", "legendFormat": "write" }
+      ]
+    },
+    {
+      "id": 41,
+      "type": "timeseries",
+      "title": "Host Disk Space",
+      "gridPos": { "x": 12, "y": 26, "w": 12, "h": 7 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "node_filesystem_size_bytes{mountpoint='/',fstype!='tmpfs'}", "legendFormat": "total" },
+        { "datasource": "Prometheus", "expr": "node_filesystem_avail_bytes{mountpoint='/',fstype!='tmpfs'}", "legendFormat": "available" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: "${EMAIL_HOST}:${EMAIL_PORT}"
+  smtp_from: "alerts@${DOMAIN}"
+  smtp_auth_username: "${EMAIL_HOST_USER}"
+  smtp_auth_password: "${EMAIL_HOST_PASSWORD}"
+  smtp_require_tls: true
+
+# Silence duplicate alerts for 4h after first firing
+route:
+  receiver: default
+  group_by: [alertname, severity]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+  routes:
+    # Critical alerts — page immediately, repeat every 1h
+    - match:
+        severity: critical
+      receiver: critical
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: true
+
+    # Warning alerts — email only, repeat every 4h
+    - match:
+        severity: warning
+      receiver: warning
+      repeat_interval: 4h
+
+receivers:
+  - name: default
+    email_configs:
+      - to: "${ALERT_EMAIL}"
+        send_resolved: true
+        headers:
+          Subject: "[LexBangla] {{ .GroupLabels.alertname }} — {{ .Status | toUpper }}"
+
+  - name: critical
+    email_configs:
+      - to: "${ALERT_EMAIL}"
+        send_resolved: true
+        headers:
+          Subject: "[CRITICAL][LexBangla] {{ .GroupLabels.alertname }}"
+        html: |
+          <h2 style="color:red">{{ .GroupLabels.alertname }}</h2>
+          {{ range .Alerts }}
+          <p><b>{{ .Annotations.summary }}</b><br>{{ .Annotations.description }}</p>
+          {{ end }}
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#lexbangla-alerts"
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+        title: ":red_circle: [CRITICAL] {{ .GroupLabels.alertname }}"
+        text: |
+          {{ range .Alerts }}
+          *{{ .Annotations.summary }}*
+          {{ .Annotations.description }}
+          {{ end }}
+        icon_emoji: ":fire:"
+
+  - name: warning
+    email_configs:
+      - to: "${ALERT_EMAIL}"
+        send_resolved: true
+        headers:
+          Subject: "[WARNING][LexBangla] {{ .GroupLabels.alertname }}"
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#lexbangla-alerts"
+        send_resolved: true
+        color: warning
+        title: ":warning: {{ .GroupLabels.alertname }}"
+        text: |
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
+
+inhibit_rules:
+  # If the whole service is down, suppress lower-severity alerts for the same service
+  - source_match:
+      severity: critical
+      alertname: ServiceDown
+    target_match:
+      severity: warning
+    equal: [job]

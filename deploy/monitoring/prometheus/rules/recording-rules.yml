@@ -1,0 +1,50 @@
+groups:
+  - name: lexbangla_recordings
+    interval: 30s
+    rules:
+      # Request rate per second (5m window)
+      - record: job:django_http_requests:rate5m
+        expr: sum(rate(django_http_requests_total_by_method_total[5m]))
+
+      # 5xx error rate
+      - record: job:django_http_5xx:rate5m
+        expr: sum(rate(django_http_responses_total_by_status_total{status=~"5.."}[5m]))
+
+      # 4xx error rate
+      - record: job:django_http_4xx:rate5m
+        expr: sum(rate(django_http_responses_total_by_status_total{status=~"4.."}[5m]))
+
+      # Overall error ratio
+      - record: job:django_http_error_ratio:rate5m
+        expr: |
+          (job:django_http_5xx:rate5m + job:django_http_4xx:rate5m)
+          / job:django_http_requests:rate5m
+
+      # p50 latency
+      - record: job:django_request_latency_p50:rate5m
+        expr: |
+          histogram_quantile(0.50,
+            sum(rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])) by (le)
+          )
+
+      # p95 latency
+      - record: job:django_request_latency_p95:rate5m
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])) by (le)
+          )
+
+      # p99 latency
+      - record: job:django_request_latency_p99:rate5m
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])) by (le)
+          )
+
+      # DB query rate
+      - record: job:django_db_queries:rate5m
+        expr: sum(rate(django_db_execute_many_calls_total[5m]))
+
+      # Active PostgreSQL connections
+      - record: job:postgres_active_connections:current
+        expr: sum(pg_stat_activity_count{state="active"})

@@ -128,6 +128,10 @@ jobs:
             SESSION_COOKIE_SECURE=True
             CSRF_COOKIE_SECURE=True
             SENTRY_DSN=${{ secrets.SENTRY_DSN }}
+            GRAFANA_ADMIN_USER=${{ secrets.GRAFANA_ADMIN_USER }}
+            GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+            ALERT_EMAIL=${{ secrets.ALERT_EMAIL }}
+            SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}
             ENVEOF
             chmod 600 /opt/lexbangla/deploy/.env.prod
 
@@ -151,6 +155,13 @@ jobs:
           script: |
             chmod +x /opt/lexbangla/deploy/scripts/deploy.sh
             /opt/lexbangla/deploy/scripts/deploy.sh "${{ steps.tag.outputs.tag }}"
+            # Ensure monitoring stack is running after each deploy
+            docker compose \
+              -f /opt/lexbangla/deploy/docker-compose.prod.yml \
+              -f /opt/lexbangla/deploy/docker-compose.monitoring.yml \
+              up -d --no-deps prometheus alertmanager grafana \
+              nginx-exporter postgres-exporter redis-exporter \
+              cadvisor node-exporter
 
       - name: Verify deployment
         uses: appleboy/ssh-action@v1.0.3
