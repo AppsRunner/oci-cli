@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "paths": {
+      "@lexbangla/core": ["../../packages/core/src"],
+      "@lexbangla/ocr": ["../ocr/src"]
+    }
+  },
+  "references": [
+    { "path": "../../packages/core" },
+    { "path": "../ocr" }
+  ],
+  "include": ["src/**/*"]
+}

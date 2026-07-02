@@ -1,0 +1,25 @@
+{
+  "name": "lexbangla-api",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc --build",
+    "dev": "ts-node -r tsconfig-paths/register src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/multipart": "^8.3.0",
+    "@lexbangla/core": "workspace:*",
+    "@lexbangla/ocr": "workspace:*",
+    "bullmq": "^5.7.0",
+    "fastify": "^4.28.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.4.0"
+  }
+}

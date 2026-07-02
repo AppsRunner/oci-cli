@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "composite": true,
+    "paths": {
+      "@lexbangla/core": ["../../packages/core/src"]
+    }
+  },
+  "references": [
+    { "path": "../../packages/core" }
+  ],
+  "include": ["src/**/*"]
+}
