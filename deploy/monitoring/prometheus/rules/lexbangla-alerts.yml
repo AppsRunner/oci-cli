@@ -1,0 +1,200 @@
+groups:
+  # ── Availability ─────────────────────────────────────────────────────────────
+  - name: availability
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} scrape target is down"
+          description: "Prometheus cannot reach {{ $labels.instance }} (job={{ $labels.job }}). Has been down for >2m."
+
+      - alert: DjangoBackendDown
+        expr: absent(django_http_requests_total_by_method_total)
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Django backend is not emitting metrics"
+          description: "No HTTP request metrics from Django in the last 3 minutes. App may be crashed."
+
+  # ── HTTP Error Rates ──────────────────────────────────────────────────────────
+  - name: http_errors
+    rules:
+      - alert: HighErrorRate5xx
+        expr: |
+          sum(rate(django_http_responses_total_by_status_total{status=~"5.."}[5m]))
+          /
+          sum(rate(django_http_responses_total_by_status_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High 5xx error rate: {{ $value | humanizePercentage }}"
+          description: "More than 5% of requests are returning 5xx errors over the last 5 minutes."
+
+      - alert: HighErrorRate4xx
+        expr: |
+          sum(rate(django_http_responses_total_by_status_total{status=~"4.."}[5m]))
+          /
+          sum(rate(django_http_responses_total_by_status_total[5m])) > 0.20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 4xx error rate: {{ $value | humanizePercentage }}"
+          description: "More than 20% of requests are returning 4xx errors over the last 10 minutes."
+
+  # ── Latency ───────────────────────────────────────────────────────────────────
+  - name: latency
+    rules:
+      - alert: HighP95Latency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])) by (le)
+          ) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 API latency is {{ $value | humanizeDuration }}"
+          description: "95th percentile request latency exceeds 2s for the last 5 minutes."
+
+      - alert: CriticalP95Latency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])) by (le)
+          ) > 5.0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical p95 API latency: {{ $value | humanizeDuration }}"
+          description: "95th percentile request latency exceeds 5s. Immediate investigation required."
+
+  # ── Database ─────────────────────────────────────────────────────────────────
+  - name: database
+    rules:
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is unreachable"
+          description: "postgres-exporter cannot connect to the database."
+
+      - alert: HighDbConnections
+        expr: |
+          sum(pg_stat_activity_count) by (datname)
+          /
+          pg_settings_max_connections > 0.80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DB connection pool >80% full ({{ $value | humanizePercentage }})"
+          description: "PostgreSQL connection count is above 80% of max_connections."
+
+      - alert: SlowQueries
+        expr: |
+          rate(django_db_execute_many_calls_total[5m]) > 0
+          and
+          rate(django_db_execute_many_time_seconds_total[5m])
+          / rate(django_db_execute_many_calls_total[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Django DB queries averaging >500ms"
+          description: "Average DB query execution time is above 500ms over the last 5 minutes."
+
+      - alert: PostgresReplicationLag
+        expr: pg_replication_lag > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL replication lag: {{ $value | humanizeDuration }}"
+          description: "Replication lag exceeds 5 minutes."
+
+  # ── Redis ─────────────────────────────────────────────────────────────────────
+  - name: redis
+    rules:
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is unreachable"
+          description: "redis-exporter cannot connect to Redis."
+
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory usage >85% ({{ $value | humanizePercentage }})"
+          description: "Redis is approaching its maxmemory limit. Items may start being evicted."
+
+  # ── Containers ───────────────────────────────────────────────────────────────
+  - name: containers
+    rules:
+      - alert: ContainerRestarting
+        expr: |
+          increase(container_start_time_seconds{name=~"lexbangla_.*"}[30m]) > 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} restarted >3 times in 30m"
+          description: "Frequent container restarts indicate a crash loop."
+
+      - alert: ContainerHighMemory
+        expr: |
+          container_memory_usage_bytes{name=~"lexbangla_.*"}
+          / container_spec_memory_limit_bytes{name=~"lexbangla_.*"} > 0.90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} memory >90%"
+          description: "Container is using more than 90% of its memory limit — OOM kill risk."
+
+  # ── Host ─────────────────────────────────────────────────────────────────────
+  - name: host
+    rules:
+      - alert: HighCpuLoad
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host CPU load >85% for 10m on {{ $labels.instance }}"
+          description: "OCI instance is under sustained high CPU pressure."
+
+      - alert: LowDiskSpace
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"}
+          / node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"}) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space <15% on {{ $labels.instance }}"
+          description: "Root filesystem is running low on space. Check logs and DB volume."
+
+      - alert: CriticalDiskSpace
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"}
+          / node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"}) * 100 < 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CRITICAL: Disk space <5% on {{ $labels.instance }}"
+          description: "Disk almost full. Writes may start failing immediately."

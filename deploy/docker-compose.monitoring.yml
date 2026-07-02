@@ -1,0 +1,146 @@
+version: '3.8'
+
+# Monitoring stack — run alongside docker-compose.prod.yml
+# Start: docker compose -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: lexbangla_prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --storage.tsdb.retention.size=10GB
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+      - --web.enable-lifecycle
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    networks:
+      - lexbangla_net
+      - monitoring_net
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: lexbangla_alertmanager
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --web.external-url=http://localhost:9093
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    networks:
+      - monitoring_net
+    ports:
+      - "127.0.0.1:9093:9093"
+
+  grafana:
+    image: grafana/grafana:10.4.1
+    container_name: lexbangla_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD required}
+      GF_SERVER_ROOT_URL: https://${DOMAIN}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SMTP_ENABLED: "true"
+      GF_SMTP_HOST: ${EMAIL_HOST}:${EMAIL_PORT:-587}
+      GF_SMTP_USER: ${EMAIL_HOST_USER}
+      GF_SMTP_PASSWORD: ${EMAIL_HOST_PASSWORD}
+      GF_SMTP_FROM_ADDRESS: alerts@${DOMAIN}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - monitoring_net
+    ports:
+      - "127.0.0.1:3001:3000"
+
+  # Nginx metrics (stub_status scraper)
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.1.0
+    container_name: lexbangla_nginx_exporter
+    restart: unless-stopped
+    command:
+      - --nginx.scrape-uri=http://nginx:8080/stub_status
+    networks:
+      - lexbangla_net
+      - monitoring_net
+
+  # PostgreSQL metrics
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: lexbangla_postgres_exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
+    networks:
+      - lexbangla_net
+      - monitoring_net
+
+  # Redis metrics
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.59.0
+    container_name: lexbangla_redis_exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    networks:
+      - lexbangla_net
+      - monitoring_net
+
+  # Host + container metrics
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: lexbangla_cadvisor
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - monitoring_net
+
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: lexbangla_node_exporter
+    restart: unless-stopped
+    command:
+      - --path.procfs=/host/proc
+      - --path.rootfs=/rootfs
+      - --path.sysfs=/host/sys
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - monitoring_net
+
+volumes:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:
+
+networks:
+  lexbangla_net:
+    external: true
+  monitoring_net:
+    driver: bridge
