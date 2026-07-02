@@ -1,0 +1,22 @@
+{
+  "name": "@lexbangla/ocr",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "dev": "tsc --build --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lexbangla/core": "workspace:*",
+    "minio": "^7.1.3",
+    "pdf-parse": "^1.1.1",
+    "tesseract.js": "^4.1.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/pdf-parse": "^1.1.4",
+    "typescript": "^5.4.0"
+  }
+}
