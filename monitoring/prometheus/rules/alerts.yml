@@ -1,0 +1,225 @@
+groups:
+
+  # ── Django / HTTP ──────────────────────────────────────────────────────────────
+
+  - name: lexbangla.http
+    interval: 30s
+    rules:
+
+      # p95 request latency exceeds 1 second for 5 consecutive minutes
+      - alert: HighP95RequestLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(django_http_requests_latency_seconds_by_view_method_bucket{
+                view!~"prometheus-django-metrics|health"
+              }[5m])
+            )
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "LexBangla p95 latency > 1 s"
+          description: >-
+            The 95th-percentile HTTP request latency is {{ $value | humanizeDuration }}
+            (threshold: 1 s). Investigate slow views or database queries.
+          runbook: "https://wiki.lexbangla.com/runbooks/high-latency"
+
+      # p95 latency exceeds 3 seconds — critical
+      - alert: CriticalP95RequestLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(django_http_requests_latency_seconds_by_view_method_bucket{
+                view!~"prometheus-django-metrics|health"
+              }[5m])
+            )
+          ) > 3.0
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "LexBangla p95 latency > 3 s (CRITICAL)"
+          description: >-
+            The 95th-percentile HTTP request latency is {{ $value | humanizeDuration }}.
+            Immediate action required.
+          runbook: "https://wiki.lexbangla.com/runbooks/high-latency"
+
+      # HTTP 5xx error rate > 5% for 5 minutes
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(django_http_responses_total_by_status_view_method_total{status=~"5.."}[5m]))
+            /
+            sum(rate(django_http_responses_total_by_status_view_method_total[5m]))
+          ) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "LexBangla 5xx error rate > 5%"
+          description: >-
+            HTTP 5xx error rate is {{ $value | humanize }}% over the last 5 minutes.
+          runbook: "https://wiki.lexbangla.com/runbooks/high-error-rate"
+
+      # HTTP 5xx error rate > 25% — critical
+      - alert: CriticalErrorRate
+        expr: |
+          (
+            sum(rate(django_http_responses_total_by_status_view_method_total{status=~"5.."}[5m]))
+            /
+            sum(rate(django_http_responses_total_by_status_view_method_total[5m]))
+          ) * 100 > 25
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "LexBangla 5xx error rate > 25% (CRITICAL)"
+          description: >-
+            HTTP 5xx error rate is {{ $value | humanize }}%. The service may be down.
+          runbook: "https://wiki.lexbangla.com/runbooks/high-error-rate"
+
+  # ── Containers ─────────────────────────────────────────────────────────────────
+
+  - name: lexbangla.containers
+    interval: 60s
+    rules:
+
+      # Container has restarted more than twice in the past hour
+      - alert: ContainerFrequentRestarts
+        expr: |
+          increase(container_start_time_seconds{
+            name=~"lexbangla-.*",
+            name!="lexbangla-cadvisor"
+          }[1h]) > 2
+        for: 0m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "Container {{ $labels.name }} restarted > 2 times in 1 h"
+          description: >-
+            Container {{ $labels.name }} has restarted
+            {{ $value | humanize }} times in the last hour.
+            Check logs: docker logs {{ $labels.name }}
+          runbook: "https://wiki.lexbangla.com/runbooks/container-restarts"
+
+      # Container is in a restart loop (> 5 restarts per hour)
+      - alert: ContainerRestartLoop
+        expr: |
+          increase(container_start_time_seconds{
+            name=~"lexbangla-.*",
+            name!="lexbangla-cadvisor"
+          }[1h]) > 5
+        for: 0m
+        labels:
+          severity: critical
+          team: infra
+        annotations:
+          summary: "Container {{ $labels.name }} is in a restart loop (CRITICAL)"
+          description: >-
+            Container {{ $labels.name }} has restarted
+            {{ $value | humanize }} times in the last hour.
+          runbook: "https://wiki.lexbangla.com/runbooks/container-restarts"
+
+      # Service is down (no samples from Django)
+      - alert: DjangoDown
+        expr: absent(django_http_requests_before_middlewares_total)
+        for: 3m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "LexBangla Django application is down"
+          description: >-
+            No metrics received from Django for 3 minutes.
+            The application may be crashed or unreachable.
+          runbook: "https://wiki.lexbangla.com/runbooks/service-down"
+
+      # Nginx is down
+      - alert: NginxDown
+        expr: absent(nginx_connections_active)
+        for: 3m
+        labels:
+          severity: critical
+          team: infra
+        annotations:
+          summary: "LexBangla Nginx is down"
+          description: >-
+            No metrics received from Nginx for 3 minutes.
+
+  # ── Database ───────────────────────────────────────────────────────────────────
+
+  - name: lexbangla.database
+    interval: 30s
+    rules:
+
+      # PostgreSQL active connections > 80% of max_connections (default 100)
+      - alert: HighDBConnections
+        expr: |
+          sum(pg_stat_database_numbackends{datname="lexbangla"})
+          / pg_settings_max_connections * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "PostgreSQL connection usage > 80%"
+          description: >-
+            {{ $value | humanize }}% of max_connections are in use.
+            Consider connection pooling (PgBouncer).
+          runbook: "https://wiki.lexbangla.com/runbooks/db-connections"
+
+      # PostgreSQL is down
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "PostgreSQL is unreachable"
+          description: "The postgres-exporter cannot connect to PostgreSQL."
+          runbook: "https://wiki.lexbangla.com/runbooks/db-down"
+
+  # ── Host ───────────────────────────────────────────────────────────────────────
+
+  - name: lexbangla.host
+    interval: 60s
+    rules:
+
+      # Disk usage > 85%
+      - alert: HighDiskUsage
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/", fstype!="tmpfs"}
+            / node_filesystem_size_bytes{mountpoint="/", fstype!="tmpfs"}
+          ) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "Host disk usage > 85%"
+          description: >-
+            Only {{ $value | humanize }}% disk space remaining on /.
+
+      # Memory available < 10%
+      - alert: LowMemory
+        expr: |
+          (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "Host memory < 10% available"
+          description: >-
+            Only {{ $value | humanize }}% memory available on the host.

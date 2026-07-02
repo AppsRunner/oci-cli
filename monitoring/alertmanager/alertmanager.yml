@@ -1,0 +1,113 @@
+global:
+  # SMTP (email) settings — override with env vars or edit directly
+  smtp_smarthost: "${ALERTMANAGER_SMTP_HOST:-smtp.gmail.com:587}"
+  smtp_from: "${ALERTMANAGER_EMAIL_FROM:-alerts@lexbangla.com}"
+  smtp_auth_username: "${ALERTMANAGER_EMAIL_USER}"
+  smtp_auth_password: "${ALERTMANAGER_EMAIL_PASSWORD}"
+  smtp_require_tls: true
+
+  # Slack app webhook (set in .env as SLACK_WEBHOOK_URL)
+  slack_api_url: "${SLACK_WEBHOOK_URL}"
+
+  resolve_timeout: 5m
+
+# Default inhibition rules — prevent warning when critical fires on same alert
+inhibit_rules:
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="warning"
+    equal:
+      - alertname
+
+route:
+  group_by: [alertname, severity, team]
+  group_wait: 30s          # wait to batch alerts in same group
+  group_interval: 5m       # wait before sending updates for a firing group
+  repeat_interval: 4h      # re-notify if still firing after this duration
+  receiver: slack-warnings  # default receiver
+
+  routes:
+    # Critical alerts → immediate Slack + email to on-call
+    - matchers:
+        - severity="critical"
+      receiver: critical
+      group_wait: 10s
+      repeat_interval: 1h
+
+    # Warning alerts → Slack only
+    - matchers:
+        - severity="warning"
+      receiver: slack-warnings
+      repeat_interval: 4h
+
+    # Infra team alerts
+    - matchers:
+        - team="infra"
+      receiver: slack-infra
+      continue: true  # also route to default
+
+receivers:
+
+  - name: critical
+    slack_configs:
+      - channel: "#lexbangla-alerts-critical"
+        send_resolved: true
+        icon_emoji: ":rotating_light:"
+        username: "LexBangla Alertmanager"
+        title: >-
+          [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}]
+          {{ .GroupLabels.alertname }}
+        text: >-
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Severity:* {{ .Labels.severity }}
+          *Description:* {{ .Annotations.description }}
+          *Runbook:* {{ .Annotations.runbook }}
+          *Started:* {{ .StartsAt | since }}
+          {{ end }}
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+    email_configs:
+      - to: "${ALERTMANAGER_ONCALL_EMAIL:-oncall@lexbangla.com}"
+        send_resolved: true
+        headers:
+          Subject: >-
+            [{{ .Status | toUpper }}] LexBangla Alert: {{ .GroupLabels.alertname }}
+        body: >-
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Severity: {{ .Labels.severity }}
+          Description: {{ .Annotations.description }}
+          Runbook: {{ .Annotations.runbook }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+
+  - name: slack-warnings
+    slack_configs:
+      - channel: "#lexbangla-alerts"
+        send_resolved: true
+        icon_emoji: ":warning:"
+        username: "LexBangla Alertmanager"
+        title: >-
+          [{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}
+        text: >-
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ end }}
+        color: '{{ if eq .Status "firing" }}warning{{ else }}good{{ end }}'
+
+  - name: slack-infra
+    slack_configs:
+      - channel: "#lexbangla-infra"
+        send_resolved: true
+        icon_emoji: ":computer:"
+        username: "LexBangla Alertmanager"
+        title: >-
+          [{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}
+        text: >-
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ end }}
+        color: '{{ if eq .Status "firing" }}warning{{ else }}good{{ end }}'
