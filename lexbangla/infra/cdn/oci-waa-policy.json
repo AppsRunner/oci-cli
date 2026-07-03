@@ -1,0 +1,89 @@
+{
+  "_comment": "OCI Web Application Accelerator policy for LexBangla — deploy with: oci waa web-app-acceleration-policy create --compartment-id <OCID> --from-json file://oci-waa-policy.json",
+  "displayName": "lexbangla-waa-policy",
+  "responseCachingPolicy": {
+    "isResponseHeaderBasedCachingEnabled": true
+  },
+  "responseCompressionPolicy": {
+    "gzipCompressionPolicy": {
+      "isEnabled": true
+    }
+  },
+  "requestAccessControl": {
+    "defaultActionName": "ALLOW",
+    "rules": [
+      {
+        "actionName": "ALLOW",
+        "condition": {
+          "expression": "i_contains(wildcard.string.source.ip.address, '0.0.0.0/0')"
+        },
+        "name": "allow-all-traffic"
+      }
+    ]
+  },
+  "requestCachingPolicy": {
+    "isEnabled": true
+  },
+  "cachingRules": [
+    {
+      "actionName": "CACHE_STATIC_ASSETS",
+      "name": "cache-static-assets",
+      "cachingDuration": "PT1H",
+      "isClientCachingEnabled": true,
+      "clientCachingDuration": "PT24H",
+      "criteria": [
+        {
+          "condition": "URL_IS",
+          "value": "/static/*"
+        },
+        {
+          "condition": "URL_IS",
+          "value": "/media/documents/*"
+        },
+        {
+          "condition": "URL_IS",
+          "value": "*.css"
+        },
+        {
+          "condition": "URL_IS",
+          "value": "*.js"
+        },
+        {
+          "condition": "URL_IS",
+          "value": "*.woff2"
+        }
+      ]
+    },
+    {
+      "actionName": "CACHE_LEGAL_DOCS",
+      "name": "cache-legal-documents",
+      "cachingDuration": "PT5M",
+      "isClientCachingEnabled": true,
+      "clientCachingDuration": "PT5M",
+      "criteria": [
+        {
+          "condition": "URL_IS",
+          "value": "/api/legal/*"
+        },
+        {
+          "condition": "URL_IS",
+          "value": "/legal/*"
+        }
+      ]
+    },
+    {
+      "actionName": "NO_CACHE",
+      "name": "no-cache-auth",
+      "criteria": [
+        {
+          "condition": "URL_IS",
+          "value": "/api/auth/*"
+        },
+        {
+          "condition": "URL_IS",
+          "value": "/admin/*"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+# Cloudflare configuration for LexBangla (alternative to OCI WAA)
+# Apply via Cloudflare API or Terraform cloudflare provider.
+
+zone:
+  name: lexbangla.com
+  plan: pro  # Required for custom cache rules and Polish image optimization
+
+cache_rules:
+  # Static assets — long TTL, serve stale while revalidating
+  - description: "Cache static assets 24h"
+    expression: '(http.request.uri.path matches "^/static/") or (http.request.uri.path matches "^/media/")'
+    action: cache
+    cache_ttl:
+      edge: 86400      # 24 hours at edge
+      browser: 86400
+    cache_deception_armor: true
+
+  # Next.js built assets (content-addressed, safe to cache forever)
+  - description: "Cache Next.js _next/static assets 1 year"
+    expression: 'http.request.uri.path matches "^/_next/static/"'
+    action: cache
+    cache_ttl:
+      edge: 31536000   # 1 year
+      browser: 31536000
+
+  # Legal document pages via Next.js ISR — short edge TTL, ISR handles freshness
+  - description: "Cache legal document pages 5 min"
+    expression: 'http.request.uri.path matches "^/legal/"'
+    action: cache
+    cache_ttl:
+      edge: 300         # 5 minutes — ISR revalidation window
+      browser: 300
+    bypass_cache_on_cookie: "sessionid|csrftoken"
+
+  # Auth / admin — never cache
+  - description: "Bypass cache for auth and admin"
+    expression: '(http.request.uri.path matches "^/api/auth/") or (http.request.uri.path matches "^/admin/")'
+    action: bypass
+
+page_rules:
+  # Polish (lossless image compression) for media uploads
+  - url: "lexbangla.com/media/*"
+    settings:
+      polish: lossless
+      mirage: "on"
+      cache_level: cache_everything
+
+firewall:
+  # Rate-limit the Django API to protect PostgreSQL
+  - description: "Rate limit API endpoint"
+    expression: 'http.request.uri.path matches "^/api/"'
+    action: rate_limit
+    rate_limit:
+      threshold: 200   # requests per minute per IP
+      period: 60
+      action: challenge
+
+performance:
+  minify:
+    javascript: true
+    css: true
+    html: true
+  brotli: true
+  http2: true
+  http3: true  # QUIC
+  early_hints: true
