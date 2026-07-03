@@ -1,0 +1,48 @@
+[Unit]
+Description=LexBangla — Nightly Database Backup (WAL-G + pg_dump)
+Documentation=https://github.com/appsrunner/oci-cli/blob/master/scripts/db-backup/README.md
+After=network-online.target postgresql.service
+Wants=network-online.target
+# Do not start if PostgreSQL failed to come up
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+# Run as the postgres OS user so PGHOST unix-socket auth works without a password
+User=postgres
+Group=postgres
+
+# Configuration file path — override per-environment via a drop-in
+Environment=LEXBANGLA_BACKUP_CONFIG=/etc/lexbangla/db-backup.env
+
+# Hard limits: the backup must complete within 6 hours
+TimeoutStartSec=6h
+
+# Sequential execution: WAL-G base backup first, then pg_dump snapshot.
+# ExecStart may only appear once; chain commands via a wrapper.
+ExecStart=/usr/local/bin/lexbangla-db-backup
+
+# Emit a summary line to the journal when the backup finishes
+ExecStartPost=/usr/bin/logger -t lexbangla-db-backup "Nightly backup complete"
+
+# Restart policy: do not auto-restart a backup job — the timer will
+# reschedule it tomorrow.  Alert the operator via journald/paging instead.
+Restart=no
+
+# Standard output/error both go to the systemd journal (journalctl -u lexbangla-db-backup)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lexbangla-db-backup
+
+# Filesystem hardening — the backup scripts only need access to:
+#   /etc/lexbangla  (config)
+#   /var/lib/postgresql (PGDATA, read for WAL-G)
+#   /var/tmp/lexbangla-backup (staging)
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/tmp/lexbangla-backup /var/log/lexbangla
+ReadOnlyPaths=/etc/lexbangla /var/lib/postgresql
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

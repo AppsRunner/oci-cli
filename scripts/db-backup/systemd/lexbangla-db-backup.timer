@@ -1,0 +1,23 @@
+[Unit]
+Description=LexBangla — Nightly Database Backup Timer (02:00 UTC)
+Documentation=https://github.com/appsrunner/oci-cli/blob/master/scripts/db-backup/README.md
+
+[Timer]
+# Fire at 02:00 UTC every day.
+# OnCalendar uses the system clock; ensure the host is set to UTC
+# (timedatectl set-timezone UTC).
+OnCalendar=*-*-* 02:00:00 UTC
+
+# If the system was offline at 02:00 (e.g. reboot), run the missed backup
+# within 15 minutes of next boot rather than waiting until tomorrow.
+Persistent=true
+
+# Spread load slightly (±5 min) across a fleet — safe to remove on a
+# single-node deployment.
+RandomizedDelaySec=5min
+
+# Ensure the service unit is loaded
+Unit=lexbangla-db-backup.service
+
+[Install]
+WantedBy=timers.target
