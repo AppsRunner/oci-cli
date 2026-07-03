@@ -1,0 +1,100 @@
+name: SAST — Bandit + Semgrep
+
+on:
+  push:
+    branches: ["master", "main", "claude/**"]
+    paths:
+      - "lexbangla/**"
+      - ".github/workflows/sast.yml"
+  pull_request:
+    branches: ["master", "main"]
+    paths:
+      - "lexbangla/**"
+  schedule:
+    # Run weekly on Monday 02:00 UTC regardless of pushes
+    - cron: "0 2 * * 1"
+
+permissions:
+  contents: read
+  security-events: write  # required for uploading SARIF to GitHub Security tab
+
+jobs:
+  bandit:
+    name: Bandit static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Bandit
+        run: pip install bandit[sarif]>=1.7
+
+      - name: Run Bandit
+        run: |
+          bandit \
+            --recursive lexbangla/ \
+            --format sarif \
+            --output bandit-results.sarif \
+            --severity-level medium \
+            --confidence-level medium \
+            --exclude lexbangla/.venv,lexbangla/staticfiles
+        continue-on-error: true
+
+      - name: Upload Bandit SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit-results.sarif
+          category: bandit
+
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        run: |
+          semgrep \
+            --config=p/python \
+            --config=p/django \
+            --config=p/owasp-top-ten \
+            --config=p/secrets \
+            --sarif \
+            --output semgrep-results.sarif \
+            lexbangla/
+        continue-on-error: true
+
+      - name: Upload Semgrep SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-results.sarif
+          category: semgrep
+
+  safety:
+    name: Dependency vulnerability scan (Safety)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Safety
+        run: pip install safety>=3.0
+
+      - name: Run Safety check
+        run: |
+          safety check \
+            --file lexbangla/requirements/base.txt \
+            --output text \
+            --policy-file lexbangla/.safety-policy.yml || true

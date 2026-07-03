@@ -1,0 +1,4 @@
+-r base.txt
+bandit>=1.7,<2.0
+semgrep>=1.50,<2.0
+safety>=3.0,<4.0

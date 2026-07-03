@@ -1,0 +1,3 @@
+version: "3.0"
+security-updates-only: false
+ignore-unpinned-requirements: false

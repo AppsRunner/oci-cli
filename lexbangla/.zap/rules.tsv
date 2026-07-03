@@ -1,0 +1,11 @@
+# ZAP baseline rule overrides for LexBangla
+# Format: rule-id  IGNORE|WARN|FAIL  reason
+#
+# 10035  Strict-Transport-Security   — enforced by Django SECURE_HSTS_* settings
+10035	IGNORE	HSTS enforced by Django SecurityMiddleware in production
+# 10036  Server leaks version info    — stripped by SecurityHeadersMiddleware
+10036	IGNORE	Server header overridden to generic value by SecurityHeadersMiddleware
+# 10038  Content-Security-Policy     — set by django-csp
+10038	IGNORE	CSP delivered via django-csp middleware
+# 10063  Permissions-Policy          — set by SecurityHeadersMiddleware
+10063	IGNORE	Permissions-Policy set by SecurityHeadersMiddleware
