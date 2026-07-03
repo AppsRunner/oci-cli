@@ -1,0 +1,145 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: info
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+    tenant_id: lexbangla
+
+scrape_configs:
+
+  # ── Docker container logs ────────────────────────────────────────────────────
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 15s
+        filters:
+          - name: status
+            values: [running]
+    relabel_configs:
+      - source_labels: [__meta_docker_container_name]
+        regex: "/(.*)"
+        target_label: container
+      - source_labels: [__meta_docker_container_log_stream]
+        target_label: stream
+      - source_labels: [__meta_docker_compose_service]
+        target_label: service
+      - source_labels: [__meta_docker_compose_project]
+        target_label: compose_project
+    pipeline_stages:
+      - docker: {}
+      - labels:
+          container:
+          stream:
+          service:
+
+  # ── Nginx access log ─────────────────────────────────────────────────────────
+  - job_name: nginx_access
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx
+          log_type: access
+          host: lexbangla
+          __path__: /var/log/nginx/access.log
+    pipeline_stages:
+      - regex:
+          expression: >-
+            ^(?P<remote_addr>[\S]+) - (?P<remote_user>[^\s]+) \[(?P<time_local>[^\]]+)\]
+            "(?P<method>\S+) (?P<request_uri>\S+) (?P<http_version>[^"]+)"
+            (?P<status>\d+) (?P<body_bytes_sent>\d+) "(?P<http_referer>[^"]*)"
+            "(?P<http_user_agent>[^"]*)" (?P<request_time>[\d.]+)
+      - labels:
+          method:
+          status:
+          request_uri:
+          remote_addr:
+      - metrics:
+          nginx_request_duration_seconds:
+            type: Histogram
+            description: "Nginx request duration"
+            source: request_time
+            config:
+              buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+
+  # ── Nginx error log ──────────────────────────────────────────────────────────
+  - job_name: nginx_error
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx
+          log_type: error
+          host: lexbangla
+          __path__: /var/log/nginx/error.log
+    pipeline_stages:
+      - regex:
+          expression: >-
+            ^(?P<time>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})
+            \[(?P<level>\w+)\] (?P<pid>\d+)#(?P<tid>\d+):
+            (?P<message>.*)$
+      - labels:
+          level:
+      - drop:
+          expression: ".*healthcheck.*"
+
+  # ── Django application log ───────────────────────────────────────────────────
+  - job_name: django
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: django
+          app: lexbangla
+          environment: production
+          __path__: /var/log/django/*.log
+    pipeline_stages:
+      - multiline:
+          firstline: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'
+          max_wait_time: 3s
+          max_lines: 256
+      - regex:
+          expression: >-
+            ^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d+)
+            (?P<level>\w+)\s+(?P<logger>[\w.]+)
+            (?P<message>[\s\S]*)$
+      - labels:
+          level:
+          logger:
+      - timestamp:
+          source: timestamp
+          format: "2006-01-02 15:04:05,000"
+      - match:
+          selector: '{level="ERROR"}'
+          stages:
+            - metrics:
+                django_errors_total:
+                  type: Counter
+                  description: "Total Django errors"
+                  source: level
+                  config:
+                    action: inc
+
+  # ── Gunicorn access log ──────────────────────────────────────────────────────
+  - job_name: gunicorn
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: gunicorn
+          app: lexbangla
+          __path__: /var/log/gunicorn/*.log
+    pipeline_stages:
+      - regex:
+          expression: >-
+            ^(?P<remote_addr>[\S]+) - - \[(?P<time>[^\]]+)\]
+            "(?P<method>\S+) (?P<path>\S+) HTTP/[\d.]+"
+            (?P<status>\d+) (?P<bytes>\d+)
+      - labels:
+          method:
+          status:

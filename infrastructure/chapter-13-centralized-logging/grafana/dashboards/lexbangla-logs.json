@@ -1,0 +1,582 @@
+{
+  "__inputs": [],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "loki", "name": "Loki", "version": "1.0.0" },
+    { "type": "panel", "id": "logs", "name": "Logs", "version": "" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
+    { "type": "panel", "id": "piechart", "name": "Pie chart", "version": "" }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Centralized log dashboard for LexBangla — Docker containers, Nginx, and Django",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Overview",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "title": "Total Log Lines",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "sum(count_over_time({job=~\".+\"}[$__range]))",
+          "legendFormat": "Total",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "title": "Django Errors",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "sum(count_over_time({job=\"django\", level=\"ERROR\"}[$__range]))",
+          "legendFormat": "Errors",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 20 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "title": "Nginx 5xx Errors",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "sum(count_over_time({job=\"nginx\", log_type=\"access\"} |= \"status=5\" [$__range]))",
+          "legendFormat": "5xx",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "id": 4,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "title": "Running Containers",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "count(count by (container)(count_over_time({job=\"docker\"}[$__range])))",
+          "legendFormat": "Containers",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 5 },
+      "id": 10,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "title": "Log Volume by Source",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "sum by (job)(rate({job=~\"nginx|django|docker|gunicorn\"}[$__rate_interval]))",
+          "legendFormat": "{{job}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "id": 200,
+      "title": "Nginx Access & Error Logs",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "reqps" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "id": 20,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "title": "Nginx Request Rate by HTTP Status",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "sum by (status)(rate({job=\"nginx\", log_type=\"access\"} | logfmt | __error__=\"\" [$__rate_interval]))",
+          "legendFormat": "HTTP {{status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "id": 21,
+      "options": {
+        "displayLabels": ["percent"],
+        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "pieType": "pie",
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "title": "HTTP Status Code Distribution",
+      "type": "piechart",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "sum by (status)(count_over_time({job=\"nginx\", log_type=\"access\"} | logfmt | __error__=\"\" [$__range]))",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 22 },
+      "id": 22,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "title": "Nginx Access Log Stream",
+      "type": "logs",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "{job=\"nginx\", log_type=\"access\"} |= \"$nginx_filter\"",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 },
+      "id": 23,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "title": "Nginx Error Log Stream",
+      "type": "logs",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "{job=\"nginx\", log_type=\"error\"} | logfmt | level=~\"$log_level\"",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 },
+      "id": 300,
+      "title": "Django Application Logs",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
+      "id": 30,
+      "options": {
+        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "title": "Django Log Volume by Level",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "sum by (level)(rate({job=\"django\"} | logfmt | __error__=\"\" [$__rate_interval]))",
+          "legendFormat": "{{level}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 41 },
+      "id": 31,
+      "options": {
+        "displayLabels": ["percent"],
+        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "pieType": "donut",
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "title": "Django Log Level Distribution",
+      "type": "piechart",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "sum by (level)(count_over_time({job=\"django\"} | logfmt | __error__=\"\" [$__range]))",
+          "legendFormat": "{{level}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 49 },
+      "id": 32,
+      "options": {
+        "dedupStrategy": "signature",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "title": "Django Error Log Stream",
+      "type": "logs",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "{job=\"django\", level=~\"ERROR|CRITICAL\"} |= \"$django_filter\"",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 59 },
+      "id": 33,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "title": "Django Application Log Stream",
+      "type": "logs",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "{job=\"django\"} | logfmt | level=~\"$log_level\" |= \"$django_filter\"",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 69 },
+      "id": 400,
+      "title": "Docker Container Logs",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 70 },
+      "id": 40,
+      "options": {
+        "legend": { "calcs": ["mean"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "title": "Container Log Rate",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "sum by (container)(rate({job=\"docker\"} [$__rate_interval]))",
+          "legendFormat": "{{container}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 70 },
+      "id": 41,
+      "options": {
+        "displayLabels": ["percent"],
+        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "pieType": "pie",
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "title": "Log Volume by Container",
+      "type": "piechart",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "sum by (container)(count_over_time({job=\"docker\"} [$__range]))",
+          "legendFormat": "{{container}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 78 },
+      "id": 42,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "title": "Container Log Stream",
+      "type": "logs",
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "expr": "{job=\"docker\", container=~\"$container\"} |= \"$search\"",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["lexbangla", "logging", "loki", "nginx", "django", "docker"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "name": "datasource",
+        "options": [],
+        "query": "loki",
+        "refresh": 1,
+        "type": "datasource",
+        "label": "Loki Source"
+      },
+      {
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "datasource": { "type": "loki", "uid": "${datasource}" },
+        "definition": "label_values({job=\"docker\"}, container)",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "container",
+        "options": [],
+        "query": "label_values({job=\"docker\"}, container)",
+        "refresh": 2,
+        "sort": 1,
+        "type": "query",
+        "label": "Container"
+      },
+      {
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "log_level",
+        "options": [
+          { "selected": true, "text": "All", "value": "$__all" },
+          { "selected": false, "text": "DEBUG", "value": "DEBUG" },
+          { "selected": false, "text": "INFO", "value": "INFO" },
+          { "selected": false, "text": "WARNING", "value": "WARNING" },
+          { "selected": false, "text": "ERROR", "value": "ERROR" },
+          { "selected": false, "text": "CRITICAL", "value": "CRITICAL" }
+        ],
+        "query": "DEBUG,INFO,WARNING,ERROR,CRITICAL",
+        "type": "custom",
+        "label": "Log Level"
+      },
+      {
+        "current": { "selected": false, "text": "", "value": "" },
+        "hide": 0,
+        "name": "search",
+        "options": [{ "selected": true, "text": "", "value": "" }],
+        "query": "",
+        "type": "textbox",
+        "label": "Search"
+      },
+      {
+        "current": { "selected": false, "text": "", "value": "" },
+        "hide": 0,
+        "name": "nginx_filter",
+        "options": [{ "selected": true, "text": "", "value": "" }],
+        "query": "",
+        "type": "textbox",
+        "label": "Nginx Filter"
+      },
+      {
+        "current": { "selected": false, "text": "", "value": "" },
+        "hide": 0,
+        "name": "django_filter",
+        "options": [{ "selected": true, "text": "", "value": "" }],
+        "query": "",
+        "type": "textbox",
+        "label": "Django Filter"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "LexBangla — Centralized Logs",
+  "uid": "lexbangla-logs-v1",
+  "version": 1
+}

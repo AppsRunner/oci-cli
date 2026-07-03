@@ -1,0 +1,111 @@
+version: "3.9"
+
+networks:
+  lexbangla_net:
+    external: true
+  logging_net:
+    driver: bridge
+
+volumes:
+  loki_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+services:
+
+  # ── Loki ─────────────────────────────────────────────────────────────────────
+  loki:
+    image: grafana/loki:2.9.10
+    container_name: loki
+    restart: unless-stopped
+    user: "10001:10001"
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/loki-config.yml
+    networks:
+      - logging_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 -O- http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Promtail ─────────────────────────────────────────────────────────────────
+  promtail:
+    image: grafana/promtail:2.9.10
+    container_name: promtail
+    restart: unless-stopped
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      # Docker socket for container log discovery
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Docker container logs
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      # Nginx logs (bind-mounted from host)
+      - /var/log/nginx:/var/log/nginx:ro
+      # Django / Gunicorn logs (bind-mounted from host)
+      - /var/log/django:/var/log/django:ro
+      - /var/log/gunicorn:/var/log/gunicorn:ro
+    command: -config.file=/etc/promtail/promtail-config.yml
+    networks:
+      - logging_net
+      - lexbangla_net
+    depends_on:
+      loki:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Grafana ───────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.3
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_DOMAIN: ${GRAFANA_DOMAIN:-localhost}
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s:%(http_port)s/"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_INSTALL_PLUGINS: ""
+      GF_LOG_MODE: console
+      GF_LOG_LEVEL: warn
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - logging_net
+      - lexbangla_net
+    depends_on:
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 -O- http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
