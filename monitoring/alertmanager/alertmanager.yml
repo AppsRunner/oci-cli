@@ -1,0 +1,136 @@
+global:
+  resolve_timeout: 5m
+
+  # ── SMTP (email) defaults ─────────────────────────────────────────────────
+  smtp_smarthost: "${ALERTMANAGER_SMTP_HOST:-smtp.gmail.com:587}"
+  smtp_from: "${ALERTMANAGER_SMTP_FROM:-alerts@lexbangla.com}"
+  smtp_auth_username: "${ALERTMANAGER_SMTP_USER}"
+  smtp_auth_password: "${ALERTMANAGER_SMTP_PASSWORD}"
+  smtp_require_tls: true
+
+  # ── Slack API URL ─────────────────────────────────────────────────────────
+  slack_api_url: "${ALERTMANAGER_SLACK_WEBHOOK_URL}"
+
+# ── Inhibit critical if warning is already firing ──────────────────────────
+inhibit_rules:
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="warning"
+    equal:
+      - alertname
+
+# ── Routing tree ───────────────────────────────────────────────────────────
+route:
+  receiver: default
+  group_by:
+    - alertname
+    - severity
+    - team
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+  routes:
+    # Critical alerts → immediate Slack DM + email
+    - matchers:
+        - severity="critical"
+      receiver: critical
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: false
+
+    # Warning latency alerts → Slack channel
+    - matchers:
+        - severity="warning"
+        - team="backend"
+      receiver: backend-slack
+      group_wait: 60s
+      repeat_interval: 6h
+
+    # Container / ops warnings → ops Slack channel
+    - matchers:
+        - severity="warning"
+        - team="ops"
+      receiver: ops-slack
+      group_wait: 60s
+      repeat_interval: 6h
+
+# ── Receivers ──────────────────────────────────────────────────────────────
+receivers:
+  - name: default
+    email_configs:
+      - to: "${ALERTMANAGER_EMAIL_TO:-ops@lexbangla.com}"
+        send_resolved: true
+        headers:
+          Subject: "[LexBangla] {{ .Status | toUpper }} — {{ .GroupLabels.alertname }}"
+        html: |
+          {{ range .Alerts }}
+          <b>Alert:</b> {{ .Annotations.summary }}<br/>
+          <b>Description:</b> {{ .Annotations.description }}<br/>
+          <b>Severity:</b> {{ .Labels.severity }}<br/>
+          <b>Started:</b> {{ .StartsAt }}<br/>
+          <br/>
+          {{ end }}
+
+  - name: critical
+    slack_configs:
+      - channel: "#lexbangla-alerts-critical"
+        send_resolved: true
+        username: "LexBangla Alertmanager"
+        icon_emoji: ":rotating_light:"
+        title: >
+          [{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}
+        text: >
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          {{ end }}
+        actions:
+          - type: button
+            text: "View in Grafana"
+            url: "${GRAFANA_URL:-http://localhost:3000}"
+    email_configs:
+      - to: "${ALERTMANAGER_EMAIL_CRITICAL:-oncall@lexbangla.com}"
+        send_resolved: true
+        headers:
+          Subject: "[CRITICAL] LexBangla — {{ .GroupLabels.alertname }}"
+        html: |
+          <h2 style="color:red">CRITICAL ALERT</h2>
+          {{ range .Alerts }}
+          <b>Alert:</b> {{ .Annotations.summary }}<br/>
+          <b>Description:</b> {{ .Annotations.description }}<br/>
+          <b>Started:</b> {{ .StartsAt }}<br/>
+          {{ end }}
+
+  - name: backend-slack
+    slack_configs:
+      - channel: "#lexbangla-backend-alerts"
+        send_resolved: true
+        username: "LexBangla Alertmanager"
+        icon_emoji: ":warning:"
+        title: >
+          [{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}
+        text: >
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          *Details:* {{ .Annotations.description }}
+          {{ end }}
+
+  - name: ops-slack
+    slack_configs:
+      - channel: "#lexbangla-ops-alerts"
+        send_resolved: true
+        username: "LexBangla Alertmanager"
+        icon_emoji: ":warning:"
+        title: >
+          [{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}
+        text: >
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          *Details:* {{ .Annotations.description }}
+          {{ end }}
+
+templates:
+  - /etc/alertmanager/templates/*.tmpl

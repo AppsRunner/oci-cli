@@ -1,0 +1,75 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+  external_labels:
+    environment: production
+    project: lexbangla
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+      timeout: 10s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  # ─── Prometheus self-monitoring ──────────────────────────────────────────
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090
+
+  # ─── Django application — django-prometheus middleware ────────────────────
+  # Requires INSTALLED_APPS += ['django_prometheus'] and url(r'^metrics$', ...)
+  - job_name: django
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - django:8000     # replace with actual Django service host:port
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: django-app
+
+  # ─── Nginx — nginx-prometheus-exporter ────────────────────────────────────
+  - job_name: nginx
+    static_configs:
+      - targets:
+          - nginx-exporter:9113
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: nginx
+
+  # ─── cAdvisor — container metrics ─────────────────────────────────────────
+  - job_name: cadvisor
+    static_configs:
+      - targets:
+          - cadvisor:8080
+    metric_relabel_configs:
+      # Keep only LexBangla-related containers to reduce cardinality
+      - source_labels: [container_label_com_docker_compose_project]
+        action: keep
+        regex: lexbangla|monitoring|""
+
+  # ─── Node Exporter — host metrics ─────────────────────────────────────────
+  - job_name: node
+    static_configs:
+      - targets:
+          - node-exporter:9100
+
+  # ─── Alertmanager ─────────────────────────────────────────────────────────
+  - job_name: alertmanager
+    static_configs:
+      - targets:
+          - alertmanager:9093
+
+  # ─── PostgreSQL exporter (optional — enable when postgres_exporter deployed)
+  # - job_name: postgres
+  #   static_configs:
+  #     - targets:
+  #         - postgres-exporter:9187
