@@ -1,0 +1,12 @@
+# Monitoring and observability dependencies for LexBangla Django backend
+# Pin to exact versions for reproducible builds; bump deliberately.
+
+# Prometheus metrics exposition
+django-prometheus==0.3.1
+prometheus-client==0.20.0
+
+# Error tracking and performance monitoring
+sentry-sdk[django,redis]==2.4.0
+
+# Structured logging (optional, pairs well with Grafana Loki)
+structlog==24.1.0

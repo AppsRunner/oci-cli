@@ -1,0 +1,66 @@
+{# Include once in <head>. Provides Alpine.js component + CSS. #}
+<style>
+  .provenance-block { position: relative; }
+  .provenance-tooltip { min-width: 260px; }
+</style>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script>
+  document.addEventListener('alpine:init', () => {
+    Alpine.data('provenanceTooltip', (data) => ({
+      data: data,
+      visible: false,
+      citationInput: '',
+      _timer: null,
+
+      init() {},
+
+      get blockTypeLabel() {
+        const labels = {
+          binding_law: 'Binding BD Law',
+          doctrinal_context: 'Doctrinal Context',
+          verify_case: 'Verify Required',
+          narrative: 'Narrative',
+          cross_reference: 'Cross-Reference',
+        };
+        return labels[this.data.type] || this.data.type;
+      },
+
+      get typeClass() {
+        const classes = {
+          binding_law: 'bg-green-100 text-green-800',
+          doctrinal_context: 'bg-blue-100 text-blue-800',
+          verify_case: 'bg-yellow-100 text-yellow-800',
+          narrative: 'bg-gray-100 text-gray-700',
+          cross_reference: 'bg-gray-100 text-gray-600',
+        };
+        return classes[this.data.type] || 'bg-gray-100 text-gray-700';
+      },
+
+      show() {
+        clearTimeout(this._timer);
+        this.visible = true;
+      },
+
+      hide() {
+        this._timer = setTimeout(() => { this.visible = false; }, 200);
+      },
+
+      async resolveCitation() {
+        if (!this.citationInput.trim()) return;
+        const resp = await fetch(`/api/blocks/${this.data.id}/resolve/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '',
+          },
+          body: JSON.stringify({ citation: this.citationInput.trim() }),
+        });
+        if (resp.ok) {
+          this.data.verified_citation = this.citationInput.trim();
+          this.data.type = 'binding_law';
+          this.citationInput = '';
+        }
+      },
+    }));
+  });
+</script>

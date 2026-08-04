@@ -1,0 +1,92 @@
+groups:
+  - name: lexbangla.latency
+    interval: 30s
+    rules:
+      # ── Recording rules — pre-compute p95 latency ──────────────────────────
+      - record: job:django_http_requests_latency_seconds:p95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(django_http_requests_latency_seconds_by_view_method_bucket[5m]))
+              by (le, view, method)
+          )
+
+      - record: job:django_http_requests_latency_seconds:p50
+        expr: |
+          histogram_quantile(
+            0.50,
+            sum(rate(django_http_requests_latency_seconds_by_view_method_bucket[5m]))
+              by (le, view, method)
+          )
+
+      - record: job:django_http_requests_per_second
+        expr: |
+          sum(rate(django_http_requests_total_by_method_view_status[5m]))
+            by (method, view, status)
+
+      # ── Alert: p95 latency above 2 s for 5 consecutive minutes ────────────
+      - alert: HighP95RequestLatency
+        expr: |
+          job:django_http_requests_latency_seconds:p95 > 2.0
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High p95 request latency on {{ $labels.view }}"
+          description: >
+            The 95th-percentile response time for view {{ $labels.view }}
+            ({{ $labels.method }}) has been above 2 s for 5 minutes.
+            Current value: {{ $value | humanizeDuration }}.
+
+      - alert: CriticalP95RequestLatency
+        expr: |
+          job:django_http_requests_latency_seconds:p95 > 5.0
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Critical p95 request latency on {{ $labels.view }}"
+          description: >
+            The 95th-percentile response time for view {{ $labels.view }}
+            ({{ $labels.method }}) has exceeded 5 s for 2 minutes.
+            Current value: {{ $value | humanizeDuration }}.
+
+  - name: lexbangla.errors
+    interval: 30s
+    rules:
+      # ── Recording rule — HTTP 5xx error rate ──────────────────────────────
+      - record: job:django_http_5xx_rate
+        expr: |
+          sum(rate(django_http_responses_total_by_status_view_method{status=~"5.."}[5m]))
+            by (view, method)
+            /
+          sum(rate(django_http_responses_total_by_status_view_method[5m]))
+            by (view, method)
+
+      - alert: HighErrorRate
+        expr: |
+          job:django_http_5xx_rate > 0.05
+        for: 3m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Elevated 5xx error rate on {{ $labels.view }}"
+          description: >
+            The HTTP 5xx error rate for {{ $labels.view }} is
+            {{ $value | humanizePercentage }} (threshold 5%) over the past 5 minutes.
+
+      - alert: CriticalErrorRate
+        expr: |
+          job:django_http_5xx_rate > 0.20
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Critical 5xx error rate on {{ $labels.view }}"
+          description: >
+            The HTTP 5xx error rate for {{ $labels.view }} has exceeded 20%.
+            Immediate attention required.

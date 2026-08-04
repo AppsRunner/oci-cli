@@ -1,0 +1,87 @@
+{% load i18n %}
+{# ProvenanceBlock — renders paragraph with hover tooltip showing sources #}
+<div
+  class="provenance-block border-l-4 pl-3 mb-4 {{ border_class }}"
+  x-data="provenanceTooltip({{ tooltip_data }})"
+  x-init="init()"
+>
+  {# ── Text paragraph ─────────────────────────────── #}
+  <p
+    class="text-base leading-relaxed cursor-help"
+    @mouseenter="show"
+    @mouseleave="hide"
+  >
+    {{ block.display_text }}
+    {% if is_verify %}
+      <span class="inline-block ml-1 text-yellow-500 font-bold" title="Unverified case — click to add citation">⚠</span>
+    {% endif %}
+  </p>
+
+  {# ── Tooltip panel ─────────────────────────────── #}
+  <div
+    x-show="visible"
+    x-transition:enter="transition ease-out duration-150"
+    x-transition:enter-start="opacity-0 translate-y-1"
+    x-transition:enter-end="opacity-100 translate-y-0"
+    x-transition:leave="transition ease-in duration-100"
+    x-transition:leave-end="opacity-0 translate-y-1"
+    class="provenance-tooltip absolute z-50 max-w-sm bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-sm"
+    @mouseenter="show"
+    @mouseleave="hide"
+  >
+    <div class="font-semibold text-gray-700 mb-1">
+      Sources
+      <span class="ml-2 text-xs font-normal px-1 py-0.5 rounded"
+            :class="typeClass">
+        <span x-text="blockTypeLabel"></span>
+      </span>
+    </div>
+
+    {# Source citations list #}
+    <template x-if="data.sources && data.sources.length > 0">
+      <ul class="space-y-1 mb-2">
+        <template x-for="src in data.sources" :key="src.citation">
+          <li class="text-gray-600">
+            <span class="font-mono text-xs font-bold text-gray-800" x-text="src.citation"></span>
+            <span class="text-gray-500 ml-1" x-text="'— ' + src.principle"></span>
+          </li>
+        </template>
+      </ul>
+    </template>
+
+    {# Verify-case action #}
+    <template x-if="data.type === 'verify_case'">
+      <div class="mt-2 border-t pt-2">
+        <p class="text-yellow-700 font-medium text-xs mb-1">Unverified suggestion:</p>
+        <p class="text-gray-600 text-xs italic" x-text="data.verify_suggestion"></p>
+        <template x-if="!data.verified_citation">
+          <div class="mt-2 flex gap-1">
+            <input
+              type="text"
+              x-model="citationInput"
+              class="flex-1 border rounded px-2 py-1 text-xs"
+              placeholder="Paste citation, e.g. 67 DLR (AD) 123"
+              @keydown.enter="resolveCitation"
+            />
+            <button
+              @click="resolveCitation"
+              class="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+            >
+              Confirm
+            </button>
+          </div>
+        </template>
+        <template x-if="data.verified_citation">
+          <p class="mt-1 text-green-700 text-xs font-semibold">
+            ✓ Verified: <span x-text="data.verified_citation"></span>
+          </p>
+        </template>
+      </div>
+    </template>
+
+    {# Human edited badge #}
+    <template x-if="data.is_human_edited">
+      <p class="mt-1 text-xs text-indigo-600">✎ Manually edited</p>
+    </template>
+  </div>
+</div>
